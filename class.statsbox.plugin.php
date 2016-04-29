@@ -126,7 +126,39 @@ class StatsBoxPlugin extends Gdn_Plugin {
   }
 
   public function Setup() {
+	$this->Structure();
     return TRUE;
+  }
+///////////////////////////////////////// 
+   public function Structure() {
+	//Database structure/updates
+		if(version_compare(APPLICATION_VERSION, '2.2', '<')) return;	//No structure change for 2.1
+		$Msg = 'Statsbox Plugin: '.t('A one time database update is taking place during plugin setup for Vanilla Version ').APPLICATION_VERSION;
+		Gdn::controller()->informMessage($Msg); 
+		echo wrap(wrap($Msg,'H3'),'BR');
+		$prefix = Gdn::database()->DatabasePrefix;
+		$sql = "UPDATE ".$prefix."Discussion d, 
+					(SELECT ud.DiscussionID, SUM(ud.Bookmarked) AS 'CountBookmarked' 
+					FROM ".$prefix."UserDiscussion ud
+					GROUP BY ud.DiscussionID
+					) AS ud
+					SET d.CountBookmarks = ud.CountBookmarked
+					WHERE d.DiscussionID = ud.DiscussionID";
+		$result = Gdn::sql()->query($sql);
+		$Msg = 'Statsbox Plugin: '.t('The one time database update completed ');
+		Gdn::controller()->informMessage($Msg); 
+		echo wrap(wrap($Msg,'H3'),'BR');
+   }
+ /////////////////////////////////////////
+// As of Vanilla 2.2 the discussion table bookmark count is not updated internally so we do it here
+  public function DiscussionModel_AfterBookmark_Handler($Sender,$Args) {
+	if(version_compare(APPLICATION_VERSION, '2.2', '<')) return;	//This hook should only exists in 2.2 and above...
+	$Discussion = $Sender->EventArguments['Discussion'];
+	$Sender->SQL->update('Discussion')
+		  ->set('CountBookmarks', $Sender->BookmarkCount($Discussion->DiscussionID))
+		  ->where('DiscussionID', $DiscussionID)
+		  ->put();
+	return;
   }
 
 }
